@@ -1,0 +1,20 @@
+### Final Model Performance Report
+
+#### Overview
+This report summarizes the performance metrics for all analyzed stocks.
+
+#### Performance Metrics by Stock
+Symbol            RMSE      NRMSE%   Dir. Acc%          R2
+----------------------------------------------------------
+NVDA              9.27       17.18       50.39      0.9474
+PLTR              3.56       12.29       52.66      0.8578
+MARA              3.43       25.34       49.68      0.6384
+GRAB              0.20        5.76       43.43      0.6282
+
+#### Model Architecture Details
+- Enhanced Sequential Model with LSTM layers and Dropout
+- Input features: 60 days of historical data
+- Training/Testing split: 80/20
+- Optimizer: Adam with Huber loss
+- Early stopping with patience of 10 epochs
+- Dropout layers (0.2) for regularization
