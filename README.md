@@ -43,19 +43,12 @@ An advanced stock market prediction system using LSTM neural networks for price 
 - npm (Node.js package manager)
 
 ## Installation
-
-1. Clone the repository:
-```bash
-git clone git@github.com:hrs025/stock-prediction.git
-cd stock-market-prediction
-```
-
-2. Install Python dependencies:
+1. Install Python dependencies:
 ```bash
 pip install -r stock-prediction-frontend/api/requirements.txt
 ```
 
-3. Install frontend dependencies:
+2. Install frontend dependencies:
 ```bash
 cd stock-prediction-frontend
 npm install
