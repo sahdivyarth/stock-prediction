@@ -46,7 +46,7 @@ An advanced stock market prediction system using LSTM neural networks for price 
 
 1. Clone the repository:
 ```bash
-git clone git@github.com:hrs025/stock-market-prediction.git
+git clone git@github.com:hrs025/stock-prediction.git
 cd stock-market-prediction
 ```
 
