@@ -4,7 +4,7 @@ from utils.data_analysis_and_visualization import plot_candlestick_charts
 # Create a test DataFrame with different column names
 data = {
     'date': pd.date_range('2023-01-01', periods=10),
-    'open': [100, 101, 99, 102, 98, 103, 97, 104, 96, 105],
+    'open': [100, 101, 99, 102, 98, 103, 97, 104, 96],
     'high': [102, 103, 101, 104, 100, 105, 99, 106, 98, 107],
     'low': [98, 99, 97, 100, 96, 101, 95, 102, 94, 103],
     'close': [101, 100, 100, 101, 99, 102, 98, 103, 97, 104],
