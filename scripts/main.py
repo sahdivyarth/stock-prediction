@@ -48,7 +48,12 @@ def main():
     all_metrics = {}
     
     # Predict stock prices for each symbol and generate report
-
+    for symbol in tech_list:
+        predictions, metrics = predict_stock_price(symbol)
+        print(f"\nPredicted vs Actual Prices for {symbol}:")
+        print(predictions.tail(30))  # Show last 30 days
+        generate_report(symbol, predictions, metrics)
+        all_metrics[symbol] = metrics
     
     # Generate final comprehensive report
     generate_final_report(all_metrics)
