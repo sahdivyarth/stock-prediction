@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+
+{% block title %}Prediction History - Stock Predictor{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-history me-2"></i>Prediction History</h2>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+        <i class="fas fa-plus me-2"></i>New Prediction
+    </a>
+</div>
+
+{% if predictions %}
+<div class="alert alert-info">
+    <i class="fas fa-info-circle me-2"></i>Found {{ predictions|length }} predictions
+    <small class="text-muted ms-2">(Times shown in Indian Standard Time)</small>
+</div>
+
+<div class="row">
+    {% for prediction in predictions %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{{ prediction.ticker }}</h5>
+                <span class="badge bg-primary">{{ prediction.model_used }}</span>
+            </div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <small class="text-muted">{{ prediction.country }} Market ({{ prediction.currency }})</small>
+                </div>
+                
+                <p class="card-text">
+                    <strong>Current Price:</strong> 
+                    {% if prediction.current_price_formatted %}
+                        {{ prediction.current_price_formatted }}
+                    {% elif prediction.current_price %}
+                        {{ prediction.currency_symbol }}{{ "%.2f"|format(prediction.current_price) }}
+                    {% else %}
+                        N/A
+                    {% endif %}
+                    <br>
+                    
+                    <strong>Predicted Price:</strong> 
+                    {% if prediction.predicted_price_formatted %}
+                        {{ prediction.predicted_price_formatted }}
+                    {% elif prediction.predicted_price %}
+                        {{ prediction.currency_symbol }}{{ "%.2f"|format(prediction.predicted_price) }}
+                    {% else %}
+                        N/A
+                    {% endif %}
+                    <br>
+                    
+                    <strong>Change:</strong>
+                    {% if prediction.price_change_formatted %}
+                        {% if prediction.price_direction == 'up' %}
+                            <span class="text-success">↗ {{ prediction.price_change_formatted }}</span>
+                        {% else %}
+                            <span class="text-danger">↘ {{ prediction.price_change_formatted }}</span>
+                        {% endif %}
+                    {% elif prediction.current_price and prediction.predicted_price %}
+                        {% set price_change = prediction.predicted_price - prediction.current_price %}
+                        {% if price_change >= 0 %}
+                            <span class="text-success">↗ {{ prediction.currency_symbol }}{{ "%.2f"|format(price_change) }}</span>
+                        {% else %}
+                            <span class="text-danger">↘ {{ prediction.currency_symbol }}{{ "%.2f"|format(price_change|abs) }}</span>
+                        {% endif %}
+                    {% else %}
+                        N/A
+                    {% endif %}
+                    <br>
+                    
+                    <strong>Days Predicted:</strong> {{ prediction.days_predicted }}<br>
+                    
+                    <strong>Date:</strong> {{ prediction.created_at | ist_datetime }}<br>
+                    <small class="text-muted"><i class="fas fa-clock me-1"></i>{{ prediction.created_at | time_ago }}</small>
+                </p>
+                
+                {% if prediction.summary %}
+                <div class="alert alert-success alert-sm p-2 mt-2">
+                    <small>{{ prediction.summary }}</small>
+                </div>
+                {% endif %}
+                
+                <button class="btn btn-sm btn-outline-primary" onclick="viewPrediction({{ prediction.id }})">
+                    <i class="fas fa-eye me-1"></i>View Details
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="modal fade" id="predictionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="predictionModalTitle">Prediction Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="predictionModalBody"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="text-center py-5">
+    <i class="fas fa-chart-line fa-4x text-muted mb-4"></i>
+    <h4 class="text-muted">No Predictions Yet</h4>
+    <p class="text-muted mb-4">Start making predictions to see your history here</p>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg">
+        <i class="fas fa-magic me-2"></i>Make Your First Prediction
+    </a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Convert predictions data to JavaScript
+const predictions = [
+    {% for prediction in predictions %}
+    {
+        id: {{ prediction.id }},
+        ticker: "{{ prediction.ticker }}",
+        model_used: "{{ prediction.model_used }}",
+        days_predicted: {{ prediction.days_predicted }},
+        created_at: "{{ prediction.created_at | ist_datetime }}",
+        time_ago: "{{ prediction.created_at | time_ago }}",
+        currency: "{{ prediction.currency }}",
+        currency_symbol: "{{ prediction.currency_symbol }}",
+        country: "{{ prediction.country }}",
+        company_name: "{{ prediction.company_name }}",
+        current_price: {{ prediction.current_price or 0 }},
+        predicted_price: {{ prediction.predicted_price or 0 }},
+        data: {{ prediction.data | tojson }}
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+];
+
+function viewPrediction(predictionId) {
+    const prediction = predictions.find(p => p.id == predictionId);
+    if (!prediction) {
+        alert('Prediction not found');
+        return;
+    }
+    
+    const data = prediction.data;
+    
+    document.getElementById('predictionModalTitle').textContent = 
+        `${prediction.ticker} - ${prediction.model_used}`;
+    
+    // Calculate price change
+    const priceChange = prediction.predicted_price - prediction.current_price;
+    const priceChangePercent = prediction.current_price > 0 ? ((priceChange / prediction.current_price) * 100) : 0;
+    const changeClass = priceChange >= 0 ? 'text-success' : 'text-danger';
+    const changeIcon = priceChange >= 0 ? '↗' : '↘';
+    
+    let html = `
+        <div class="alert alert-info">
+            <strong>${prediction.company_name}</strong> | ${prediction.country} Market (${prediction.currency})
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <strong>Current Price:</strong> ${prediction.currency_symbol}${prediction.current_price.toFixed(2)}
+            </div>
+            <div class="col-md-6">
+                <strong>Model:</strong> ${prediction.model_used}
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <strong>Predicted Price:</strong> ${prediction.currency_symbol}${prediction.predicted_price.toFixed(2)}
+            </div>
+            <div class="col-md-6">
+                <strong>Currency:</strong> ${prediction.currency}
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <strong>Price Change:</strong> 
+                <span class="${changeClass}">
+                    ${changeIcon} ${prediction.currency_symbol}${Math.abs(priceChange).toFixed(2)} 
+                    (${Math.abs(priceChangePercent).toFixed(2)}%)
+                </span>
+            </div>
+            <div class="col-md-6">
+                <strong>Direction:</strong> 
+                <span class="${changeClass}">${changeIcon} ${priceChange >= 0 ? 'Up' : 'Down'}</span>
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <strong>Days Predicted:</strong> ${prediction.days_predicted}
+            </div>
+            <div class="col-md-6">
+                <strong>Date (IST):</strong> ${prediction.created_at}
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-12">
+                <strong>Time:</strong> <i class="fas fa-clock me-1"></i>${prediction.time_ago}
+            </div>
+        </div>
+    `;
+    
+    // Add model metrics if available
+    if (data.model_metrics) {
+        html += `
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <strong>MSE:</strong> ${data.model_metrics.mse.toFixed(4)}
+            </div>
+            <div class="col-md-6">
+                <strong>MAE:</strong> ${data.model_metrics.mae.toFixed(4)}
+            </div>
+        </div>
+        `;
+    }
+    
+    // Add chart if we have data
+    if (data.historical_prices && data.predictions) {
+        html += '<div id="historyChart"></div>';
+    } else {
+        html += '<div class="alert alert-warning">Chart data not available for this prediction.</div>';
+    }
+    
+    document.getElementById('predictionModalBody').innerHTML = html;
+    
+    // Create chart if data is available
+    if (data.historical_prices && data.predictions && data.historical_dates && data.future_dates) {
+        setTimeout(() => {
+            const trace1 = {
+                x: data.historical_dates,
+                y: data.historical_prices,
+                type: 'scatter',
+                mode: 'lines',
+                name: `Historical Prices (${prediction.currency})`,
+                line: { color: '#007bff' }
+            };
+            
+            const trace2 = {
+                x: data.future_dates,
+                y: data.predictions,
+                type: 'scatter',
+                mode: 'lines',
+                name: `Predictions (${prediction.currency})`,
+                line: { color: '#28a745', dash: 'dash' }
+            };
+            
+            const layout = {
+                title: `${prediction.ticker} Prediction (${prediction.currency})`,
+                xaxis: { title: 'Date' },
+                yaxis: { title: `Price (${prediction.currency_symbol})` },
+                showlegend: true,
+                height: 400
+            };
+            
+            Plotly.newPlot('historyChart', [trace1, trace2], layout);
+        }, 100);
+    }
+    
+    new bootstrap.Modal(document.getElementById('predictionModal')).show();
+}
+</script>
+{% endblock %}

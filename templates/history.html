@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Prediction History - Stock Predictor{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-history me-2"></i>Prediction History</h2>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+        <i class="fas fa-plus me-2"></i>New Prediction
+    </a>
+</div>
+
+{% if predictions %}
+<div class="row">
+    {% for prediction in predictions %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{{ prediction.ticker }}</h5>
+                <span class="badge bg-primary">{{ prediction.model_used }}</span>
+            </div>
+            <div class="card-body">
+                {% set pred_data = prediction.prediction_data | from_json %}
+                <p class="card-text">
+                    <strong>Current Price:</strong> 
+                    {% if pred_data and pred_data.currency == 'INR' %}
+                        ₹{{ "%.2f"|format(pred_data.current_price) }}
+                    {% else %}
+                        ${{ "%.2f"|format(pred_data.current_price if pred_data else 0) }}
+                    {% endif %}
+                    <br>
+                    <strong>Predicted Price:</strong> 
+                    {% if pred_data and pred_data.predictions %}
+                        {% if pred_data.currency == 'INR' %}
+                            ₹{{ "%.2f"|format(pred_data.predictions[-1]) }}
+                        {% else %}
+                            ${{ "%.2f"|format(pred_data.predictions[-1]) }}
+                        {% endif %}
+                    {% else %}
+                        N/A
+                    {% endif %}
+                    <br>
+                    <strong>Days Predicted:</strong> {{ prediction.days_predicted }}<br>
+                    <strong>Date:</strong> {{ prediction.created_at.strftime('%B %d, %Y at %I:%M %p') }}
+                </p>
+                <button class="btn btn-sm btn-outline-primary" onclick="viewPrediction({{ prediction.id }})">
+                    <i class="fas fa-eye me-1"></i>View Details
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="modal fade" id="predictionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="predictionModalTitle">Prediction Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="predictionModalBody"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="text-center py-5">
+    <i class="fas fa-chart-line fa-4x text-muted mb-4"></i>
+    <h4 class="text-muted">No Predictions Yet</h4>
+    <p class="text-muted mb-4">Start making predictions to see your history here</p>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg">
+        <i class="fas fa-magic me-2"></i>Make Your First Prediction
+    </a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Convert predictions data to JavaScript
+const predictions = [
+    {% for prediction in predictions %}
+    {
+        id: {{ prediction.id }},
+        ticker: "{{ prediction.ticker }}",
+        model_used: "{{ prediction.model_used }}",
+        days_predicted: {{ prediction.days_predicted }},
+        created_at: "{{ prediction.created_at.strftime('%B %d, %Y at %I:%M %p') }}",
+        prediction_data: {{ prediction.prediction_data | safe }}
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+];
+
+function viewPrediction(predictionId) {
+    const prediction = predictions.find(p => p.id == predictionId);
+    if (!prediction) {
+        alert('Prediction not found');
+        return;
+    }
+    
+    const data = prediction.prediction_data;
+    
+    document.getElementById('predictionModalTitle').textContent = 
+        `${prediction.ticker} - ${prediction.model_used}`;
+    
+    const currency = data.currency || 'USD';
+    const currencySymbol = currency === 'INR' ? '₹' : '$';
+    
+    let html = `
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <strong>Current Price:</strong> ${currencySymbol}${data.current_price ? data.current_price.toFixed(2) : 'N/A'}
+            </div>
+            <div class="col-md-6">
+                <strong>Model:</strong> ${data.model_metrics ? data.model_metrics.model_name : prediction.model_used}
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <strong>Predicted Price:</strong> ${currencySymbol}${data.predictions && data.predictions.length > 0 ? data.predictions[data.predictions.length - 1].toFixed(2) : 'N/A'}
+            </div>
+            <div class="col-md-6">
+                <strong>Currency:</strong> ${currency}
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <strong>MSE:</strong> ${data.model_metrics ? data.model_metrics.mse.toFixed(4) : 'N/A'}
+            </div>
+            <div class="col-md-6">
+                <strong>MAE:</strong> ${data.model_metrics ? data.model_metrics.mae.toFixed(4) : 'N/A'}
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <strong>Days Predicted:</strong> ${prediction.days_predicted}
+            </div>
+            <div class="col-md-6">
+                <strong>Date:</strong> ${prediction.created_at}
+            </div>
+        </div>
+    `;
+    
+    // Add chart if we have data
+    if (data.historical_prices && data.predictions) {
+        html += '<div id="historyChart"></div>';
+    } else {
+        html += '<div class="alert alert-warning">Chart data not available for this prediction.</div>';
+    }
+    
+    document.getElementById('predictionModalBody').innerHTML = html;
+    
+    // Create chart if data is available
+    if (data.historical_prices && data.predictions && data.historical_dates && data.future_dates) {
+        setTimeout(() => {
+            const trace1 = {
+                x: data.historical_dates,
+                y: data.historical_prices,
+                type: 'scatter',
+                mode: 'lines',
+                name: `Historical Prices (${currency})`,
+                line: { color: '#007bff' }
+            };
+            
+            const trace2 = {
+                x: data.future_dates,
+                y: data.predictions,
+                type: 'scatter',
+                mode: 'lines',
+                name: `Predictions (${currency})`,
+                line: { color: '#28a745', dash: 'dash' }
+            };
+            
+            const layout = {
+                title: `${prediction.ticker} Prediction (${currency})`,
+                xaxis: { title: 'Date' },
+                yaxis: { title: `Price (${currencySymbol})` },
+                showlegend: true,
+                height: 400
+            };
+            
+            Plotly.newPlot('historyChart', [trace1, trace2], layout);
+        }, 100);
+    }
+    
+    new bootstrap.Modal(document.getElementById('predictionModal')).show();
+}
+</script>
+{% endblock %}

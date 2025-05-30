@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}
+{% if mode == 'signup' %}Sign Up{% else %}Login{% endif %} - Stock Predictor
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <i class="fas fa-user-circle fa-3x text-primary mb-3"></i>
+                    <h3>{% if mode == 'signup' %}Create Account{% else %}Welcome Back{% endif %}</h3>
+                    <p class="text-muted">
+                        {% if mode == 'signup' %}
+                        Join our community of smart investors
+                        {% else %}
+                        Sign in to your account
+                        {% endif %}
+                    </p>
+                </div>
+
+                <form id="authForm">
+                    {% if mode == 'signup' %}
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email Address</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-{% if mode == 'signup' %}user-plus{% else %}sign-in-alt{% endif %} me-2"></i>
+                            {% if mode == 'signup' %}Create Account{% else %}Sign In{% endif %}
+                        </button>
+                    </div>
+                </form>
+
+                <div class="text-center mt-4">
+                    {% if mode == 'signup' %}
+                    <p>Already have an account? <a href="{{ url_for('login') }}">Sign in here</a></p>
+                    {% else %}
+                    <p>Don't have an account? <a href="{{ url_for('signup') }}">Sign up here</a></p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="messageModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="messageModalTitle">Message</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="messageModalBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('authForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData);
+    
+    try {
+        const response = await fetch(window.location.pathname, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            if ('{{ mode }}' === 'login') {
+                window.location.href = '/dashboard';
+            } else {
+                showMessage('Success', result.message, 'success');
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 2000);
+            }
+        } else {
+            showMessage('Error', result.message, 'error');
+        }
+    } catch (error) {
+        showMessage('Error', 'An error occurred. Please try again.', 'error');
+    }
+});
+
+function showMessage(title, message, type) {
+    document.getElementById('messageModalTitle').textContent = title;
+    document.getElementById('messageModalBody').textContent = message;
+    
+    const modal = document.getElementById('messageModal');
+    modal.className = `modal fade ${type === 'success' ? 'text-success' : 'text-danger'}`;
+    
+    new bootstrap.Modal(modal).show();
+}
+</script>
+{% endblock %}
